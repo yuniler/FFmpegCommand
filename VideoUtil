@@ -1,0 +1,87 @@
+
+import android.util.Log
+import com.coder.ffmpeg.call.IFFmpegCallBack
+import com.coder.ffmpeg.jni.FFmpegCommand
+import com.coder.ffmpeg.utils.FFmpegUtils
+import com.yuedong.sportexam.YdApplication
+import com.yuedong.sportexam.tool.util.CommonUtil
+import java.io.File
+
+
+object VideoUtil {
+//调用com.coder.ffmpeg.utils.FFmpegUtils
+
+    // 拼接的视频地址为第一个路径的目录
+    private fun contactVideo(pathList:String,targetPath: String,callback: (path: String) -> Unit){
+
+
+
+        FFmpegCommand.runCmd(FFmpegUtils.concatVideo(pathList,targetPath), object :
+            IFFmpegCallBack {
+            override fun onCancel() {
+                Log.d("concatVideo ", "onError")
+            }
+
+            override fun onComplete() {
+//                callback(targetPath)
+                callback(targetPath)
+                Log.d("concatVideo ", "onComplete")
+            }
+
+            override fun onError(errorCode: Int, errorMsg: String?) {
+                Log.d("concatVideo ", "onError")
+            }
+
+            override fun onProgress(progress: Int, pts: Long) {
+                Log.d("concatVideo ", "onProgress $progress pts $pts")
+            }
+
+            override fun onStart() {
+                Log.d("concatVideo ", "onStart")
+            }
+
+        })
+
+    }
+    @Synchronized
+    fun decodeh265toh264(targetPath:String, videoPathList:String, callback: (path: String) -> Unit) {
+        contactorVideo(targetPath, arrayListOf(videoPathList), callback)
+    }
+    private fun contactorVideo(targetPath:String, videoPathList:List<String>, callback: (path: String) -> Unit): Unit {
+        try {
+            val listPath= videoPathList.filter { File(it).exists() }
+//        copyFile
+            if (listPath.isEmpty()){
+                error("solorcontactVideo path videoPathList isBlank")
+            }
+            val mVideoDir=YdApplication.app.externalCacheDir
+            val toCopyPathList=listPath.map {
+                if (File(it).parentFile?.absolutePath==mVideoDir?.absolutePath){
+                    it
+                }else{
+                    val copyPath=File(mVideoDir,"${CommonUtil.getUuid().replace("-","_")}.mp4").absolutePath
+                    FileUtil.copyFile(it, copyPath)
+                    copyPath
+                }
+
+            }
+
+            val path = FileUtil.createInputFile(YdApplication.app, *toCopyPathList.toTypedArray())
+                ?: ""
+            if (path.isBlank()){
+                error("solorcontactVideo path redPath isBlank ")
+            }
+
+            contactVideo(path,targetPath){
+                callback(it)
+                toCopyPathList.forEach { FileUtil.deletePath(it) }
+            }
+        }catch (e:Exception){
+            e.printStackTrace()
+        }
+
+    }
+
+}
+
+
